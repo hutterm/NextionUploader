@@ -164,6 +164,24 @@ class NexusUploadTests(unittest.TestCase):
         nexus.uploadSpeed = 921600
         self.assertEqual(nexus._upload_block_timeout(4096), 2.0)
 
+    def test_reopen_upload_port_wraps_expected_serial_errors(self):
+        nexus = self.make_nexus()
+        nexus.uploadSpeed = 115200
+        nexus.ser = FakeSerial(open_fail_bauds={115200})
+        with self.assertRaisesRegex(Exception, "Cannot reopen port at upload baudrate."):
+            nexus._reopen_upload_port(4096)
+
+    def test_reopen_upload_port_preserves_unexpected_errors(self):
+        class RuntimeFailingSerial(FakeSerial):
+            def open(self):
+                raise RuntimeError("unexpected failure")
+
+        nexus = self.make_nexus()
+        nexus.uploadSpeed = 115200
+        nexus.ser = RuntimeFailingSerial()
+        with self.assertRaisesRegex(RuntimeError, "unexpected failure"):
+            nexus._reopen_upload_port(4096)
+
 
 class CliValidationTests(unittest.TestCase):
     def test_validate_tft_path_rejects_directory(self):

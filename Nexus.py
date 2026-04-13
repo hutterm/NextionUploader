@@ -189,6 +189,15 @@ class Nexus:
         secondsPerBlock = blockSize * 10 / self.uploadSpeed
         return max(2.0, secondsPerBlock + 0.5)
 
+    def _reopen_upload_port(self, blockSize):
+        self.ser.close()
+        self.ser.baudrate = self.uploadSpeed
+        self.ser.timeout = self._upload_block_timeout(blockSize)
+        try:
+            self.ser.open()
+        except (serial.SerialException, OSError, ValueError) as e:
+            raise Exception("Cannot reopen port at upload baudrate.") from e
+
     def upload(self, tftFilePath):
         # Visual separation in the console log
         print("")
@@ -220,13 +229,7 @@ class Nexus:
             print("\nFirmware doesn't support upload protocol v1.2, using v1.1 instead.")
         self.sendCmd(cmd, fileSize, self.uploadSpeed, protocolVersion)
         blockSize = 4096
-        self.ser.close()
-        self.ser.baudrate = self.uploadSpeed
-        self.ser.timeout = self._upload_block_timeout(blockSize)
-        try:
-            self.ser.open()
-        except:
-            raise Exception("Cannot reopen port at upload baudrate.")
+        self._reopen_upload_port(blockSize)
         self.ack()
         print("Success.")
 

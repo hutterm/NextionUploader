@@ -132,5 +132,25 @@ class NexusConnectTests(unittest.TestCase):
         self.assertEqual(nexus.connectSpeed, 921600)
 
 
+class NexusUploadTests(unittest.TestCase):
+    @staticmethod
+    def make_nexus():
+        fake_serial = FakeSerial()
+        with patch("Nexus.availablePorts", return_value=[SimpleNamespace(device="COM9")]):
+            with patch("Nexus.serial.Serial", return_value=fake_serial):
+                nexus = Nexus(port="COM9", connect=False)
+        return nexus
+
+    def test_select_upload_command_uses_v11_for_old_firmware(self):
+        nexus = self.make_nexus()
+        nexus.fwVersion = 120
+        self.assertEqual(nexus._select_upload_command(), ("whmi-wri", 0))
+
+    def test_select_upload_command_uses_v12_for_new_firmware(self):
+        nexus = self.make_nexus()
+        nexus.fwVersion = 155
+        self.assertEqual(nexus._select_upload_command(), ("whmi-wris", 1))
+
+
 if __name__ == "__main__":
     unittest.main()

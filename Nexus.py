@@ -171,6 +171,11 @@ class Nexus:
         fileSize = struct.unpack("<I", rawSize)[0]
         return fileSize
 
+    def _select_upload_command(self):
+        if 0 <= self.fwVersion < 126:
+            return "whmi-wri", 0
+        return "whmi-wris", 1
+
     def upload(self, tftFilePath):
         # Visual separation in the console log
         print("")
@@ -197,11 +202,10 @@ class Nexus:
         # (both 155). Therefore I had to increase the minimum firmware version to 126, which
         # corresponds to editor version 0.55. For most Nextion users this shouldn't matter anyways
         # since Nextion skipped all these versions up to 0.58.
-        cmd = "whmi-wris"
-        #if self.fwVersion < 126:
-        #    cmd = "whmi-wri"
-        #    print("\nFirmware doesn't support upload protocol v1.2, using v1.1 instead.")
-        self.sendCmd(cmd, fileSize, self.uploadSpeed, 1)
+        cmd, protocolVersion = self._select_upload_command()
+        if cmd == "whmi-wri":
+            print("\nFirmware doesn't support upload protocol v1.2, using v1.1 instead.")
+        self.sendCmd(cmd, fileSize, self.uploadSpeed, protocolVersion)
         self.ser.close()
         self.ser.baudrate = self.uploadSpeed
         self.ser.timeout = 2  # Apparently the 0x08 response needs more time than the 0x05 response - about 1s.

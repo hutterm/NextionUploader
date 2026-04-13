@@ -74,20 +74,21 @@ class Nexus:
                     continue
                 self.ser.write(self.NXEOL)
                 self.ser.read(42)
-                self.connected=True
-                data = data.lstrip(b"comok ").rstrip(self.NXEOL).split(b",")
-                data[1] = data[1].split(b"-")[1] # discard reserved part of argument 1
-                self.touch     = bool(int(data[0]))
-                self.address   = int(data[1])
-                self.model     = data[2].decode("ascii")
-                self.fwVersion = int(data[3])
-                self.mcuCode   = int(data[4])
-                self.serialNum = data[5].decode("ascii")
-                self.flashSizeStr = data[6].decode("ascii")
+                try:
+                    info = self._parse_comok_response(data)
+                except ValueError as e:
+                    print("Failed ({}).".format(e))
+                    continue
+                self.connected = True
+                self.touch     = info["touch"]
+                self.address   = info["address"]
+                self.model     = info["model"]
+                self.fwVersion = info["fwVersion"]
+                self.mcuCode   = info["mcuCode"]
+                self.serialNum = info["serialNum"]
+                self.flashSizeStr = info["flashSizeStr"]
                 self.port         = port
                 self.connectSpeed = speed
-                if not self.model:
-                    raise Exception("Invalid model! Data: {}".format(data))
                 if not self.uploadSpeed:
                     self.uploadSpeed = self.connectSpeed
                 print("Success.\n")
@@ -100,6 +101,32 @@ class Nexus:
                 return True
 
         return False
+
+    def _parse_comok_response(self, data):
+        payload = data.lstrip(b"comok ").rstrip(self.NXEOL).split(b",")
+        if len(payload) < 7:
+            raise ValueError("malformed comok payload: {}".format(data))
+
+        rawAddress = payload[1]
+        if b"-" in rawAddress:
+            rawAddress = rawAddress.split(b"-", 1)[1]
+
+        try:
+            info = {
+                "touch": bool(int(payload[0])),
+                "address": int(rawAddress),
+                "model": payload[2].decode("ascii"),
+                "fwVersion": int(payload[3]),
+                "mcuCode": int(payload[4]),
+                "serialNum": payload[5].decode("ascii"),
+                "flashSizeStr": payload[6].decode("ascii"),
+            }
+        except (UnicodeDecodeError, ValueError, IndexError) as e:
+            raise ValueError("malformed comok payload: {}".format(data)) from e
+
+        if not info["model"]:
+            raise ValueError("invalid model in comok payload: {}".format(data))
+        return info
 
     def _read_connect_reply(self):
         deadline = time.time() + max(self.ser.timeout * 4, 0.2)

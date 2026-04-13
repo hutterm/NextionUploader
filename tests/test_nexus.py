@@ -116,6 +116,21 @@ class NexusConnectTests(unittest.TestCase):
         self.assertTrue(nexus.connect())
         self.assertEqual(nexus.connectSpeed, 9600)
 
+    def test_connect_skips_malformed_comok_and_keeps_scanning(self):
+        malformed = b"comok 1,123,NX3224K024\xff\xff\xff"
+        fake_serial = FakeSerial(
+            responses_by_baud={
+                9600: malformed,
+                921600: self.make_comok_response(),
+            }
+        )
+        with patch("Nexus.availablePorts", return_value=[SimpleNamespace(device="COM9")]):
+            with patch("Nexus.serial.Serial", return_value=fake_serial):
+                nexus = Nexus(port="COM9", connect=False, connectSpeed=9600)
+
+        self.assertTrue(nexus.connect())
+        self.assertEqual(nexus.connectSpeed, 921600)
+
 
 if __name__ == "__main__":
     unittest.main()

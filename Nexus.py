@@ -60,11 +60,11 @@ class Nexus:
                 print("  at {}baud/s... ".format(speed), end="")
                 self.ser.close()
                 self.ser.port = port
-                self.ser.baudrate = speed
-                self.ser.timeout  = 1000/speed + 0.030
                 try:
+                    self.ser.baudrate = speed
+                    self.ser.timeout  = 1000/speed + 0.030
                     self.ser.open()
-                except:
+                except (serial.SerialException, OSError, ValueError):
                     continue
                 self.ser.reset_input_buffer()
                 self.ser.write(b"DRAKJHSUYDGBNCJHGJKSHBDN\xff\xff\xffconnect\xff\xff\xff\xff\xffconnect\xff\xff\xff")

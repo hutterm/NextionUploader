@@ -83,6 +83,18 @@ class NexusConnectTests(unittest.TestCase):
         self.assertEqual(fake_serial.open_calls[0], 9600)
         self.assertEqual(fake_serial.open_calls[1], 921600)
 
+    def test_connect_handles_unsupported_baudrate_and_continues_scan(self):
+        fake_serial = FakeSerial(
+            invalid_bauds={9600},
+            responses_by_baud={921600: self.make_comok_response()},
+        )
+        with patch("Nexus.availablePorts", return_value=[SimpleNamespace(device="COM9")]):
+            with patch("Nexus.serial.Serial", return_value=fake_serial):
+                nexus = Nexus(port="COM9", connect=False, connectSpeed=9600)
+
+        self.assertTrue(nexus.connect())
+        self.assertIn(921600, fake_serial.open_calls)
+
 
 if __name__ == "__main__":
     unittest.main()

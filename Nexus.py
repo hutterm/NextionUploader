@@ -65,7 +65,7 @@ class Nexus:
                 try:
                     self.ser.open()
                 except:
-                    break
+                    continue
                 self.ser.reset_input_buffer()
                 self.ser.write(b"DRAKJHSUYDGBNCJHGJKSHBDN\xff\xff\xffconnect\xff\xff\xff\xff\xffconnect\xff\xff\xff")
                 data = b""

@@ -15,6 +15,13 @@ from pathlib import Path
 from math import ceil
 
 
+def validate_tft_path(tftFilePath):
+    tftPath = Path(tftFilePath)
+    if not tftPath.is_file():
+        raise ValueError("Invalid source file!")
+    return tftPath
+
+
 class Nexus:
     NXEOL = b"\xff\xff\xff"
     NXACK = b"\x05"
@@ -291,9 +298,10 @@ if __name__ == "__main__":
     if args.port not in ports:
         parser.error("Port {} not found among the available ports: {}.".format(args.port, portsStr))
 
-    tftPath = Path(args.input)
-    if not tftPath.exists():
-        parser.error("Invalid source file!")
+    try:
+        tftPath = validate_tft_path(args.input)
+    except ValueError as e:
+        parser.error(str(e))
 
     nxu = Nexus(port=args.port, connectSpeed=args.connect, uploadSpeed=args.upload)
     nxu.upload(tftPath)

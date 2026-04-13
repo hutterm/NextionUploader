@@ -1,9 +1,12 @@
 import unittest
+import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 import serial
 
+import Nexus as nexus_module
 from Nexus import Nexus
 
 
@@ -160,6 +163,21 @@ class NexusUploadTests(unittest.TestCase):
         nexus = self.make_nexus()
         nexus.uploadSpeed = 921600
         self.assertEqual(nexus._upload_block_timeout(4096), 2.0)
+
+
+class CliValidationTests(unittest.TestCase):
+    def test_validate_tft_path_rejects_directory(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with self.assertRaises(ValueError):
+                nexus_module.validate_tft_path(temp_dir)
+
+    def test_validate_tft_path_accepts_regular_file(self):
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            file_path = Path(f.name)
+        try:
+            self.assertEqual(nexus_module.validate_tft_path(file_path), file_path)
+        finally:
+            file_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

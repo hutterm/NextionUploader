@@ -68,15 +68,7 @@ class Nexus:
                     continue
                 self.ser.reset_input_buffer()
                 self.ser.write(b"DRAKJHSUYDGBNCJHGJKSHBDN\xff\xff\xffconnect\xff\xff\xff\xff\xffconnect\xff\xff\xff")
-                data = b""
-                available = -1
-                while available != len(data):
-                    available = self.ser.in_waiting
-                    newData = self.ser.read_until(expected=self.NXEOL)
-                    if newData:
-                        data = newData
-                    else:
-                        break
+                data = self._read_connect_reply()
                 if not data.startswith(b"comok"):
                     print("Failed (Got {}).".format(data))
                     continue
@@ -108,6 +100,21 @@ class Nexus:
                 return True
 
         return False
+
+    def _read_connect_reply(self):
+        deadline = time.time() + max(self.ser.timeout * 4, 0.2)
+        buffer = b""
+        while time.time() < deadline:
+            chunk = self.ser.read_until(expected=self.NXEOL)
+            if not chunk:
+                continue
+            buffer += chunk
+            while self.NXEOL in buffer:
+                frame, buffer = buffer.split(self.NXEOL, 1)
+                frame = frame.strip()
+                if frame.startswith(b"comok"):
+                    return frame + self.NXEOL
+        return b""
 
     def sendCmd(self, cmd: str, *args):
         if not self.connected:

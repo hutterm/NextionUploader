@@ -18,7 +18,7 @@ class FakeSerial:
         self._open_fail_bauds = set(open_fail_bauds or set())
         self._invalid_bauds = set(invalid_bauds or set())
         self._responses_by_baud = responses_by_baud or {}
-        self._response_consumed = {}
+        self._response_index = {}
 
     @property
     def baudrate(self):
@@ -32,9 +32,13 @@ class FakeSerial:
 
     @property
     def in_waiting(self):
-        if self._response_consumed.get(self._baudrate, False):
+        responses = self._responses_by_baud.get(self._baudrate, [])
+        if isinstance(responses, bytes):
+            responses = [responses]
+        index = self._response_index.get(self._baudrate, 0)
+        if index >= len(responses):
             return 0
-        return len(self._responses_by_baud.get(self._baudrate, b""))
+        return len(responses[index])
 
     def open(self):
         self.open_calls.append(self._baudrate)
@@ -53,10 +57,14 @@ class FakeSerial:
         return len(data)
 
     def read_until(self, expected=b"\xff\xff\xff"):
-        if self._response_consumed.get(self._baudrate, False):
+        responses = self._responses_by_baud.get(self._baudrate, [])
+        if isinstance(responses, bytes):
+            responses = [responses]
+        index = self._response_index.get(self._baudrate, 0)
+        if index >= len(responses):
             return b""
-        self._response_consumed[self._baudrate] = True
-        return self._responses_by_baud.get(self._baudrate, b"")
+        self._response_index[self._baudrate] = index + 1
+        return responses[index]
 
     def read(self, size=1):
         if size == 1:
@@ -94,6 +102,19 @@ class NexusConnectTests(unittest.TestCase):
 
         self.assertTrue(nexus.connect())
         self.assertIn(921600, fake_serial.open_calls)
+
+    def test_connect_skips_noise_and_uses_later_comok_frame(self):
+        fake_serial = FakeSerial(
+            responses_by_baud={
+                9600: [b"garbage\xff\xff\xff", self.make_comok_response()],
+            }
+        )
+        with patch("Nexus.availablePorts", return_value=[SimpleNamespace(device="COM9")]):
+            with patch("Nexus.serial.Serial", return_value=fake_serial):
+                nexus = Nexus(port="COM9", connect=False, connectSpeed=9600)
+
+        self.assertTrue(nexus.connect())
+        self.assertEqual(nexus.connectSpeed, 9600)
 
 
 if __name__ == "__main__":

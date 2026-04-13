@@ -79,13 +79,13 @@ class Nexus:
                 if not data.startswith(b"comok"):
                     print("Failed (Got {}).".format(data))
                     continue
-                self.ser.write(self.NXEOL)
-                self.ser.read(42)
                 try:
                     info = self._parse_comok_response(data)
                 except ValueError as e:
                     print("Failed ({}).".format(e))
                     continue
+                self.ser.write(self.NXEOL)
+                self._drain_input()
                 self.connected = True
                 self.touch     = info["touch"]
                 self.address   = info["address"]
@@ -134,6 +134,12 @@ class Nexus:
         if not info["model"]:
             raise ValueError("invalid model in comok payload: {}".format(data))
         return info
+
+    def _drain_input(self, maxFrames = 4):
+        for _ in range(maxFrames):
+            chunk = self.ser.read_until(expected=self.NXEOL)
+            if not chunk:
+                break
 
     def _read_connect_reply(self):
         deadline = time.time() + max(self.ser.timeout * 4, 0.2)
@@ -206,7 +212,6 @@ class Nexus:
 
         fileSize = self.getFileSize(tftFilePath)
 
-        self.sendCmd("bs=42") # For some reason the first command after self.connect() always fails. Can be anything.
         self.sendCmd("dims=100")
         self.sendCmd("sleep=0")
         self.ser.reset_input_buffer()

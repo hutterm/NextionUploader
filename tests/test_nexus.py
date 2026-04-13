@@ -182,6 +182,32 @@ class NexusUploadTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "unexpected failure"):
             nexus._reopen_upload_port(4096)
 
+    def test_upload_does_not_send_bs_workaround_command(self):
+        nexus = self.make_nexus()
+        nexus.connected = True
+        nexus.uploadSpeed = 115200
+        nexus.fwVersion = 155
+        commands = []
+
+        def track_send_cmd(cmd, *args):
+            commands.append((cmd, args))
+
+        nexus.sendCmd = track_send_cmd
+        nexus.getFileSize = lambda _: 4096
+        nexus._reopen_upload_port = lambda _: None
+        nexus.ack = lambda *_: None
+
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            file_path = Path(f.name)
+            f.write(b"\x00" * 4096)
+
+        try:
+            nexus.upload(file_path)
+        finally:
+            file_path.unlink(missing_ok=True)
+
+        self.assertNotIn(("bs=42", ()), commands)
+
 
 class CliValidationTests(unittest.TestCase):
     def test_validate_tft_path_rejects_directory(self):

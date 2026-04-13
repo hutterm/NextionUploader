@@ -151,6 +151,16 @@ class NexusUploadTests(unittest.TestCase):
         nexus.fwVersion = 155
         self.assertEqual(nexus._select_upload_command(), ("whmi-wris", 1))
 
+    def test_upload_timeout_scales_for_slow_baudrates(self):
+        nexus = self.make_nexus()
+        nexus.uploadSpeed = 9600
+        self.assertGreaterEqual(nexus._upload_block_timeout(4096), 4.5)
+
+    def test_upload_timeout_keeps_minimum_for_fast_baudrates(self):
+        nexus = self.make_nexus()
+        nexus.uploadSpeed = 921600
+        self.assertEqual(nexus._upload_block_timeout(4096), 2.0)
+
 
 if __name__ == "__main__":
     unittest.main()

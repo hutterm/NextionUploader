@@ -176,6 +176,12 @@ class Nexus:
             return "whmi-wri", 0
         return "whmi-wris", 1
 
+    def _upload_block_timeout(self, blockSize):
+        if self.uploadSpeed <= 0:
+            return 2.0
+        secondsPerBlock = blockSize * 10 / self.uploadSpeed
+        return max(2.0, secondsPerBlock + 0.5)
+
     def upload(self, tftFilePath):
         # Visual separation in the console log
         print("")
@@ -206,9 +212,10 @@ class Nexus:
         if cmd == "whmi-wri":
             print("\nFirmware doesn't support upload protocol v1.2, using v1.1 instead.")
         self.sendCmd(cmd, fileSize, self.uploadSpeed, protocolVersion)
+        blockSize = 4096
         self.ser.close()
         self.ser.baudrate = self.uploadSpeed
-        self.ser.timeout = 2  # Apparently the 0x08 response needs more time than the 0x05 response - about 1s.
+        self.ser.timeout = self._upload_block_timeout(blockSize)
         try:
             self.ser.open()
         except:
@@ -216,7 +223,6 @@ class Nexus:
         self.ack()
         print("Success.")
 
-        blockSize = 4096
         remainingBlocks = ceil(fileSize / blockSize)
         blocksSent, lastProgress, lastEta = 0, 0, 0
         with open(tftFilePath, "rb") as f:
